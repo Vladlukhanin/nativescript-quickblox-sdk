@@ -2,7 +2,6 @@ C:\Users\vladlukhanin\WebstormProjects\nativescript-quickblox-sdk\platforms\andr
 C:\Users\vladlukhanin\WebstormProjects\nativescript-quickblox-sdk\platforms\android\src\main\assets\app\bundle-config.js
 C:\Users\vladlukhanin\WebstormProjects\nativescript-quickblox-sdk\platforms\android\src\main\assets\app\main-page.js
 C:\Users\vladlukhanin\WebstormProjects\nativescript-quickblox-sdk\platforms\android\src\main\assets\app\main-view-model.js
-C:\Users\vladlukhanin\WebstormProjects\nativescript-quickblox-sdk\platforms\android\src\main\assets\app\tests\example.js
 C:\Users\vladlukhanin\WebstormProjects\nativescript-quickblox-sdk\platforms\android\src\main\assets\app\tests\qbAddressbook.js
 C:\Users\vladlukhanin\WebstormProjects\nativescript-quickblox-sdk\platforms\android\src\main\assets\app\tests\qbCore.js
 C:\Users\vladlukhanin\WebstormProjects\nativescript-quickblox-sdk\platforms\android\src\main\assets\app\tests\qbData.js

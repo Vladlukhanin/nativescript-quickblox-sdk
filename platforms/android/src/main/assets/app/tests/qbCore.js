@@ -1,6 +1,6 @@
 var REST_REQUESTS_TIMEOUT = 10000;
 
-var QB = require('./support/quickblox.min.js');
+var QB = require('nativescript-quickblox');
 
 var CREDS = require('./support/config.js').CREDS;
 var CONFIG =  require('./support/config.js').CONFIG;

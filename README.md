@@ -15,17 +15,17 @@ Work in progress...
 
 # Install
 
-```
+```cmd
 npm install nativescript-quickblox --save
 ```
 
 And you're ready to go:
 
 ```javascript
-var QB = require('quickblox');
+var QB = require('nativescript-quickblox');
 
 // OR to create many QB instances
-var QuickBlox = require('quickblox').QuickBlox;
+var QuickBlox = require('nativescript-quickblox').QuickBlox;
 var QB1 = new QuickBlox();
 var QB2 = new QuickBlox();
 ```
@@ -43,9 +43,6 @@ You can look at it here https://quickblox.com/developers/Javascript
 Please raise questions, requests for help etc. via https://stackoverflow.com/questions/tagged/quickblox
 
 Feedback and suggestions for improvement always welcome :)
-
-# How to contribute
-See more information at [contributing.md](https://github.com/QuickBlox/quickblox-javascript-sdk/blob/gh-pages/.github/CONTRIBUTING.md)
 
 # License
 Apache 2.0

@@ -9,7 +9,7 @@ var QBUser1 = require('./support/config.js').QBUser1;
 var CONTACTS = [
     {
         'name':'Gordie Kann',
-        'phone': '1879108395',
+        'phone': '1879108395'
     },
     {
         'name':'Wildon Gilleon',
