@@ -4,6 +4,11 @@
 node_modules
 npm-debug.log
 
+# nativescript
+app
+hooks
+platforms
+
 # *Storm
 .idea/*
 .idea/workspace.xml
