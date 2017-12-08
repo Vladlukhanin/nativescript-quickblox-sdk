@@ -32,7 +32,7 @@ var QB2 = new QuickBlox();
 
 ## Download ZIP archive
 
-[QuickBlox JavaScript SDK, zip archive](https://github.com/QuickBlox/quickblox-javascript-sdk/archive/gh-pages.zip)
+[NativeScript QuickBlox JavaScript SDK, zip archive](https://github.com/Vladlukhanin/nativescript-quickblox-sdk/archive/master.zip)
 
 # Documentation
 
