@@ -1,4 +1,4 @@
-# QuickBlox JavaScript SDK
+# NativeScript QuickBlox JavaScript SDK
 
 [![travis-ci](https://api.travis-ci.org/QuickBlox/quickblox-javascript-sdk.svg?branch=gh-pages)](https://travis-ci.org/QuickBlox/quickblox-javascript-sdk)
 [![Code Climate](https://codeclimate.com/github/QuickBlox/quickblox-javascript-sdk/badges/gpa.svg)](https://codeclimate.com/github/QuickBlox/quickblox-javascript-sdk)
@@ -11,30 +11,12 @@ The QuickBlox JavaScript SDK provides a JavaScript library making it even easier
 
 Check out our [API Reference](https://quickblox.github.io/quickblox-javascript-sdk/docs/) for more detailed information about our SDK.
 
+Work in progress...
+
 # Install
 
-## Dependencies for browser
-
-```html
-<script src="https://cdnjs.cloudflare.com/ajax/libs/quickblox/2.7.0/quickblox.min.js"></script>
 ```
-
-## Bower and RequireJS
-
-If you use the bower package manager for your project, you can install the JS SDK through bower:
-
-```
-bower install quickblox --save
-```
-
-When you use **RequireJS**, you are able to use QuickBlox as an AMD compliant module. The SDK supports the [UMD (Universal Module Definition)](https://github.com/umdjs/umd) pattern for JavaScript modules, so it is possible to use the SDK everywhere (as a global variable in the browser via an AMD module loader like RequireJS or as a CommonJS module in a Node.js environment).
-
-## Node.js and NPM integration
-
-Also you can use QuickBlox JavaScript SDK with server-side applications on NodeJS through the native node package. Just install the package in your application project like this:
-
-```
-npm install quickblox --save
+npm install nativescript-quickblox --save
 ```
 
 And you're ready to go:
@@ -51,12 +33,6 @@ var QB2 = new QuickBlox();
 ## Download ZIP archive
 
 [QuickBlox JavaScript SDK, zip archive](https://github.com/QuickBlox/quickblox-javascript-sdk/archive/gh-pages.zip)
-
-# Browsers support
-
-| IE   | Firefox | Chrome | Safari | Opera | Node.js |
-|:----:|:-------:|:------:|:------:|:-----:|:-------:|
-| 10+  |  30+    | 30+    |  7.1+  |  23+  |    4+   |
 
 # Documentation
 
