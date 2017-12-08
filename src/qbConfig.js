@@ -12,7 +12,7 @@
  */
 
 var config = {
-  version: '2.8.0',
+  version: '2.8.0-tns-beta',
   buildNumber: '1050',
   creds: {
     appId: '',
