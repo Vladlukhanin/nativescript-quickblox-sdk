@@ -1,0 +1,78 @@
+{
+  "_from": "crypto-js@3.1.2-2",
+  "_id": "crypto-js@3.1.2-2",
+  "_inBundle": false,
+  "_integrity": "sha1-kydPF0jsqC5EQHRTboM8Ijwo8Ok=",
+  "_location": "/crypto-js",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "version",
+    "registry": true,
+    "raw": "crypto-js@3.1.2-2",
+    "name": "crypto-js",
+    "escapedName": "crypto-js",
+    "rawSpec": "3.1.2-2",
+    "saveSpec": null,
+    "fetchSpec": "3.1.2-2"
+  },
+  "_requiredBy": [
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/crypto-js/-/crypto-js-3.1.2-2.tgz",
+  "_shasum": "93274f1748eca82e444074536e833c223c28f0e9",
+  "_spec": "crypto-js@3.1.2-2",
+  "_where": "C:\\Users\\vladlukhanin\\WebstormProjects\\nativescript-quickblox-sdk",
+  "author": {
+    "name": "Evan Vosberg",
+    "url": "http://github.com/evanvosberg"
+  },
+  "bugs": {
+    "url": "http://github.com/evanvosberg/crypto-js/issues"
+  },
+  "bundleDependencies": false,
+  "dependencies": {},
+  "deprecated": false,
+  "description": "Modularized port of googlecode project crypto-js.",
+  "devDependencies": {
+    "fmd": "~0.0.1",
+    "fs.extra": "~1.2.0",
+    "handlebars": "~1.0.10",
+    "js-yaml": "~2.0.4",
+    "tar.gz": "~0.1.1",
+    "uglify-js": "~2.2.5",
+    "underscore": "~1.4.4"
+  },
+  "homepage": "http://github.com/evanvosberg/crypto-js",
+  "keywords": [
+    "Hash",
+    "MD5",
+    "SHA1",
+    "SHA-1",
+    "SHA256",
+    "SHA-256",
+    "RC4",
+    "Rabbit",
+    "AES",
+    "DES",
+    "PBKDF2",
+    "HMAC",
+    "OFB",
+    "CFB",
+    "CTR",
+    "CBC",
+    "Base64"
+  ],
+  "licenses": [
+    {
+      "type": "New BSD",
+      "url": "http://opensource.org/licenses/BSD-3-Clause"
+    }
+  ],
+  "name": "crypto-js",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/evanvosberg/crypto-js.git"
+  },
+  "title": "crypto-js",
+  "version": "3.1.2-2"
+}

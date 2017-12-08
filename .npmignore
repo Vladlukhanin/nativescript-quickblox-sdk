@@ -1,0 +1,42 @@
+.DS_Store
+
+# npm packages
+node_modules
+npm-debug.log
+
+# *Storm
+.idea/*
+.idea/workspace.xml
+
+# *Sublime
+*.sublime-*
+
+#vscode
+.vscode
+
+# Cordova build
+**/build
+
+*.xcarchive
+
+# Android
+.gradle
+.idea
+
+# karma
+coverage
+
+# QB JS SDK Samples
+samples
+
+# QB JS SDK Docs
+docs
+
+# git
+.github
+
+# other files (don't need for development)
+.babelrc
+.codeclimate.yml
+.travis.yml
+karma.conf.js

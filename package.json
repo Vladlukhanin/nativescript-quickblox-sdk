@@ -1,0 +1,94 @@
+{
+	"name": "nativescript-quickblox",
+	"description": "NativeScript QuickBlox JS SDK",
+	"version": "2.8.0",
+	"homepage": "https://quickblox.com/developers/Javascript",
+	"main": "src/qbMain.js",
+	"license": "(Apache-2.0)",
+	"keywords": [
+		"quickblox",
+		"javascript",
+		"nativescript",
+		"sdk",
+		"baas",
+		"cloud",
+		"api",
+		"chat",
+		"communication",
+		"messaging",
+		"webrtc"
+	],
+	"maintainers": [
+		"Igor Khomenko <igor@quickblox.com>",
+		"Vlad Lukhanin <vladislav.lukhanin@quickblox.com>",
+		"Dima Lobanov <dmytro.lobanov@injoit.com>",
+		"Iegor Kozakov <iegor.kozakov@injoit.com>"
+	],
+	"contributors": [
+		"Igor Khomenko <igor@quickblox.com>",
+		"Vlad Lukhanin <vladislav.lukhanin@quickblox.com>",
+		"Dima Lobanov <dmytro.lobanov@injoit.com>",
+		"Iegor Kozakov <iegor.kozakov@injoit.com>"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Vladlukhanin/nativescript-quickblox-sdk.git"
+	},
+	"bugs": {
+		"url": "https://github.com/Vladlukhanin/nativescript-quickblox-sdk/issues",
+		"email": "web@quickblox.com"
+	},
+	"nativescript": {
+		"id": "org.nativescript.nativescriptquickbloxsdk",
+		"tns-android": {
+			"version": "3.3.1"
+		}
+	},
+	"dependencies": {
+		"crypto-js": "3.1.2-2",
+		"nativescript-theme-core": "~1.0.2",
+		"nativescript-unit-test-runner": "^0.3.4",
+		"tns-core-modules": "~3.3.0"
+	},
+	"devDependencies": {
+		"babel-traverse": "6.4.5",
+		"babel-types": "6.4.5",
+		"babylon": "6.4.5",
+		"browserify": "^13.1.0",
+		"cross-env": "^3.1.2",
+		"ghooks": "^1.3.2",
+		"gulp": "^3.9.1",
+		"gulp-connect": "^5.0.0",
+		"gulp-notify": "^3.0.0",
+		"gulp-uglify": "^3.0.0",
+		"jasmine-core": "^2.8.0",
+		"jshint": "^2.9.3",
+		"jshint-stylish": "^2.2.1",
+		"karma": "^1.7.1",
+		"karma-jasmine": "^1.1.1",
+		"karma-nativescript-launcher": "^0.4.0",
+		"lazy": "1.0.11",
+		"pump": "^1.0.1",
+		"vinyl-source-stream": "^1.1.0"
+	},
+	"autoupdate": {
+		"source": "git",
+		"target": "git+https://github.com/Vladlukhanin/nativescript-quickblox-sdk.git",
+		"basePath": "",
+		"files": [
+			"quickblox.min.js"
+		]
+	},
+	"config": {
+		"ghooks": {
+			"pre-commit": "npm run lint"
+		}
+	},
+	"scripts": {
+		"lint": "jshint src --reporter=node_modules/jshint-stylish",
+		"develop": "cross-env NODE_ENV=develop gulp",
+		"build": "npm run lint && gulp build && gulp minify",
+		"buildNotMinified": "npm run lint && gulp build",
+		"generateBuildVersion": "gulp generate-build_version"
+	}
+}
