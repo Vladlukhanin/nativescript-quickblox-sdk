@@ -19,7 +19,39 @@ Work in progress...
 npm install nativescript-quickblox --save
 ```
 
-And you're ready to go:
+#### NOTE: If you want to use XMPP chat functional.
+The following changes must be applied for **nativescript-websockets** lib:
+##### 1) node_modules/nativescript-websocket/websockets.android.js
+after line
+```javascript
+this._headers = options.headers || [];
+```
+add
+```javascript
+this._headers['Sec-WebSocket-Protocol'] = this._protocol;
+```
+
+##### 2) node_modules/nativescript-websocket/websockets.ios.js
+after line
+```javascript
+this._headers = options.headers || [];
+```
+add
+```javascript
+this._headers['Connection'] = "Upgrade";
+```
+
+##### 3) node_modules/nativescript-websocket/websockets-common.js
+replace
+```javascript
+setTimeout(function() {ws.open();}, 250);
+```
+to
+```javascript
+setTimeout(function() {ws.open();}, 500);
+```
+
+#### And you're ready to go:
 
 ```javascript
 var QB = require('nativescript-quickblox');
@@ -28,6 +60,25 @@ var QB = require('nativescript-quickblox');
 var QuickBlox = require('nativescript-quickblox').QuickBlox;
 var QB1 = new QuickBlox();
 var QB2 = new QuickBlox();
+```
+
+#### Initialize QB with chat functionality (XMPP):
+
+```javascript
+var XMPP = require('nativescript-xmpp-client');
+
+var qbConfig = {
+    xmppClient: XMPP,
+    endpoints: {
+        api: "apicustomdomain.quickblox.com",
+        chat: "chatcustomdomain.quickblox.com"
+    },
+    debug: {
+        mode: 1
+    }
+};
+
+QB.init(100500, 'your-authKey', 'your-authSecret', qbConfig);
 ```
 
 ## Download ZIP archive

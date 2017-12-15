@@ -39,13 +39,7 @@ var qbChatHelpers = {
         return jid;
     },
     createStanza: function(builder, params, type) {
-        var stanza;
-
-        if(utils.getEnv().browser) {
-            stanza = builder(params);
-        } else if(utils.getEnv().node) {
-            stanza = new builder(type ? type : 'message', params);
-        }
+        var stanza  = new builder(type ? type : 'message', params);
 
         return stanza;
     },
@@ -138,22 +132,17 @@ var qbChatHelpers = {
         Object.keys(extension).forEach(function(field) {
             if (field === 'attachments') {
                 extension[field].forEach(function(attach) {
-                    if (utils.getEnv().browser) {
-                        stanza.c('attachment', attach).up();
-                    } else if (utils.getEnv().node) {
-                        stanza.getChild('extraParams')
-                            .c('attachment', attach).up();
-                    }
+                    stanza.getChild('extraParams')
+                        .c('attachment', attach)
+                        .up();
                 });
             } else if (typeof extension[field] === 'object') {
                 helper._JStoXML(field, extension[field], stanza);
             } else {
-                if (utils.getEnv().browser) {
-                    stanza.c(field).t(extension[field]).up();
-                } else if (utils.getEnv().node) {
-                    stanza.getChild('extraParams')
-                        .c(field).t(extension[field]).up();
-                }
+                stanza.getChild('extraParams')
+                    .c(field)
+                    .t(extension[field])
+                    .up();
             }
         });
 
@@ -176,78 +165,32 @@ var qbChatHelpers = {
 
         var attachments = [];
 
-        if (utils.getEnv().browser) {
-            for (var i = 0, len = extraParams.childNodes.length; i < len; i++) {
-                // parse attachments
-                if (extraParams.childNodes[i].tagName === 'attachment') {
-                    attach = {};
-                    attributes = extraParams.childNodes[i].attributes;
+        for (var c = 0, lenght = extraParams.children.length; c < lenght; c++) {
+            if (extraParams.children[c].name === 'attachment') {
+                attach = {};
+                attributes = extraParams.children[c].attrs;
 
-                    for (var j = 0, len2 = attributes.length; j < len2; j++) {
-                        if (attributes[j].name === 'size') {
-                            attach[attributes[j].name] = parseInt(attributes[j].value);
-                        } else {
-                            attach[attributes[j].name] = attributes[j].value;
-                        }
-                    }
+                var attrKeys = Object.keys(attributes);
 
-                    attachments.push(attach);
-
-                    // parse 'dialog_id'
-                } else if (extraParams.childNodes[i].tagName === 'dialog_id') {
-                    dialogId = extraParams.childNodes[i].textContent;
-                    extension.dialog_id = dialogId;
-
-                    // parse other user's custom parameters
-                } else {
-                    if (extraParams.childNodes[i].childNodes.length > 1) {
-                        // Firefox issue with 4K XML node limit:
-                        // http://www.coderholic.com/firefox-4k-xml-node-limit/
-                        var nodeTextContentSize = extraParams.childNodes[i].textContent.length;
-
-                        if (nodeTextContentSize > 4096) {
-                            var wholeNodeContent = "";
-                            for (var k=0; k<extraParams.childNodes[i].childNodes.length; ++k) {
-                                wholeNodeContent += extraParams.childNodes[i].childNodes[k].textContent;
-                            }
-                            extension[extraParams.childNodes[i].tagName] = wholeNodeContent;
-                        } else {
-                            extension = self._XMLtoJS(extension, extraParams.childNodes[i].tagName, extraParams.childNodes[i]);
-                        }
+                for (var l = 0; l < attrKeys.length; l++) {
+                    if(attrKeys[l] === 'size'){
+                        attach.size = parseInt(attributes.size);
                     } else {
-                        extension[extraParams.childNodes[i].tagName] = extraParams.childNodes[i].textContent;
+                        attach[attrKeys[l]] = attributes[attrKeys[l]];
                     }
                 }
+
+                attachments.push(attach);
+
+            } else if (extraParams.children[c].name === 'dialog_id') {
+                dialogId = extraParams.getChildText('dialog_id');
+                extension.dialog_id = dialogId;
             }
 
-        } else if (utils.getEnv().node) {
-            for (var c = 0, lenght = extraParams.children.length; c < lenght; c++) {
-                if (extraParams.children[c].name === 'attachment') {
-                    attach = {};
-                    attributes = extraParams.children[c].attrs;
+            if (extraParams.children[c].children.length === 1) {
+                var child = extraParams.children[c];
 
-                    var attrKeys = Object.keys(attributes);
-
-                    for (var l = 0; l < attrKeys.length; l++) {
-                        if(attrKeys[l] === 'size'){
-                            attach.size = parseInt(attributes.size);
-                        } else {
-                            attach[attrKeys[l]] = attributes[attrKeys[l]];
-                        }
-                    }
-
-                    attachments.push(attach);
-
-                } else if (extraParams.children[c].name === 'dialog_id') {
-                    dialogId = extraParams.getChildText('dialog_id');
-                    extension.dialog_id = dialogId;
-                }
-
-                if (extraParams.children[c].children.length === 1) {
-                    var child = extraParams.children[c];
-
-                    extension[child.name] = child.children[0];
-                }
+                extension[child.name] = child.children[0];
             }
         }
 

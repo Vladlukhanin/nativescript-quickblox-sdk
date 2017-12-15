@@ -1,66 +1,42 @@
 'use strict';
 
 /** JSHint inline rules */
-/* globals Strophe, $pres, $msg, $iq */
+/* globals $pres, $msg, $iq */
 
 var chatUtils = require('./qbChatHelpers'),
     config = require('../../qbConfig'),
     Utils = require('../../qbUtils'),
     StreamManagement = require('../../plugins/streamManagement');
 
-var unsupportedError = 'This function isn\'t supported outside of the browser (...yet)';
-
-/** create StropheJS or NodeXMPP connection object */
-if (Utils.getEnv().browser) {
-    var Connection = require('../../qbStrophe');
-
-    Strophe.addNamespace('CARBONS', chatUtils.MARKERS.CARBONS);
-    Strophe.addNamespace('CHAT_MARKERS', chatUtils.MARKERS.CHAT);
-    Strophe.addNamespace('PRIVACY_LIST', chatUtils.MARKERS.PRIVACY);
-    Strophe.addNamespace('CHAT_STATES', chatUtils.MARKERS.STATES);
-} else {
-    var NodeClient = require('node-xmpp-client');
-}
+var XMPP = config.xmppClient ? config.xmppClient : null;
 
 function ChatProxy(service) {
+    if (!XMPP) {
+        Utils.QBLog('Initialized without XMPP library (set qbConfig.xmppClient: require("nativescript-xmpp-client")...)');
+        return {};
+    }
+
     var self = this;
 
     self.webrtcSignalingProcessor = null;
 
-    /**
-     * Browser env.
-     * Uses by Strophe
-     */
-    if (Utils.getEnv().browser) {
-        // strophe js
-        self.connection = new Connection();
+    self.Client = new XMPP.Client({
+        'websocket': {
+            'url': config.chatProtocol.websocket
+        },
+        'reconnect': true,
+        'autostart': false
+    });
 
-        /** Add extension methods to track handlers for removal on reconnect */
-        self.connection.XHandlerReferences = [];
-        self.connection.XAddTrackedHandler = function (handler, ns, name, type, id, from, options) {
-            self.connection.XHandlerReferences.push(self.connection.addHandler(handler, ns, name, type, id, from, options));
-        };
-        self.connection.XDeleteHandlers = function () {
-            while (self.connection.XHandlerReferences.length) {
-                self.connection.deleteHandler(self.connection.XHandlerReferences.pop());
-            }
-        };
-    } else {
-        // node-xmpp-client
-        self.nClient = new NodeClient({
-            'autostart': false,
-            'reconnect': true
-        });
+    // override 'send' function to add some logs
+    var originSendFunction = self.Client.send;
+    
+    self.Client.send = function(stanza) {
+        Utils.QBLog('[QB-Chat]', 'SENT:', stanza.toString());
+        originSendFunction.call(self.Client, stanza);
+    };
 
-        // override 'send' function to add some logs
-        var originSendFunction = self.nClient.send;
-        self.nClient.send = function(stanza) {
-            Utils.QBLog('[Chat]', 'SENT:', stanza.toString());
-            originSendFunction.call(self.nClient, stanza);
-        };
-
-        self.nodeStanzasCallbacks = {};
-    }
+    self.nodeStanzasCallbacks = {};
 
     this.service = service;
 
@@ -74,7 +50,7 @@ function ChatProxy(service) {
         service: service,
         helpers: self.helpers,
         stropheClient: self.connection,
-        nodeClient: self.nClient,
+        xmppClient: self.Client,
         nodeStanzasCallbacks: self.nodeStanzasCallbacks
     };
 
@@ -97,7 +73,7 @@ function ChatProxy(service) {
                 }
             };
         } else {
-            Utils.QBLog('[Chat] StreamManagement:', 'BOSH protocol doesn\'t support stream management. Set WebSocket as the "chatProtocol" parameter to use this functionality. https://quickblox.com/developers/Javascript#Configuration');
+            Utils.QBLog('[QB-Chat] StreamManagement:', 'BOSH protocol doesn\'t support stream management. Set WebSocket as the "chatProtocol" parameter to use this functionality. https://quickblox.com/developers/Javascript#Configuration');
         }
     }
 
@@ -268,19 +244,20 @@ function ChatProxy(service) {
             delay = chatUtils.getElement(stanza, 'delay'),
             extraParams = chatUtils.getElement(stanza, 'extraParams'),
             bodyContent = chatUtils.getElementText(stanza, 'body'),
+            forwarded = chatUtils.getElement(stanza, 'forwarded'),
+            extraParamsParsed,
+            recipientId,
+            recipient,
             jid;
 
-        var recipient, recipientId;
-        var extraParamsParsed;
+        if (forwarded) {
+            var forwardedMessage = chatUtils.getElement(forwarded, 'message');
 
-        if (Utils.getEnv().browser) {
-            recipient = stanza.querySelector('forwarded') ? stanza.querySelector('forwarded').querySelector('message').getAttribute('to') : null;
+            recipient = chatUtils.getAttr(forwardedMessage, 'to');
             recipientId = recipient ? self.helpers.getIdFromNode(recipient) : null;
-
-            jid = self.connection.jid;
-        } else if(Utils.getEnv().node){
-            jid = self.nClient.options.jid.user;
         }
+
+        jid = self.Client.options.jid.user;
 
         var dialogId = type === 'groupchat' ? self.helpers.getDialogIdFromNode(from) : null,
             userId = type === 'groupchat' ? self.helpers.getIdFromResource(from) : self.helpers.getIdFromNode(from),
@@ -289,15 +266,15 @@ function ChatProxy(service) {
         // ignore invite messages from MUC
         if (invite) return true;
 
-        if(extraParams) {
+        if (extraParams) {
             extraParamsParsed = chatUtils.parseExtraParams(extraParams);
 
-            if(extraParamsParsed.dialogId){
+            if (extraParamsParsed.dialogId) {
                 dialogId = extraParamsParsed.dialogId;
             }
         }
 
-        if(composing || paused){
+        if (composing || paused) {
             if (typeof self.onMessageTypingListener === 'function' && (type === 'chat' || type === 'groupchat' || !delay)){
                 Utils.safeCallbackCall(self.onMessageTypingListener, !!composing, userId, dialogId);
             }
@@ -358,103 +335,101 @@ function ChatProxy(service) {
             to = chatUtils.getAttr(stanza, 'to'),
             id = chatUtils.getAttr(stanza, 'id'),
             type = chatUtils.getAttr(stanza, 'type'),
-            currentUserId = self.helpers.getIdFromNode(self.helpers.userCurrentJid(Utils.getEnv().browser ? self.connection : self.nClient)),
+            currentUserId = self.helpers.getIdFromNode(self.helpers.userCurrentJid(self.Client)),
             x = chatUtils.getElement(stanza, 'x'),
             xXMLNS, status, statusCode, dialogId, userId;
 
-        if(x){
+        if (x) {
             xXMLNS = chatUtils.getAttr(x, 'xmlns');
             status = chatUtils.getElement(x, 'status');
-            if(status){
+
+            if (status) {
                 statusCode = chatUtils.getAttr(status, 'code');
             }
         }
 
-
         // MUC presences go here
-
-        if(xXMLNS && xXMLNS == "http://jabber.org/protocol/muc#user"){
-
+        if (xXMLNS && xXMLNS === "http://jabber.org/protocol/muc#user") {
             dialogId = self.helpers.getDialogIdFromNode(from);
             userId = self.helpers.getUserIdFromRoomJid(from);
 
             // KICK from dialog event
-            if(status && statusCode == "301"){
-                if (typeof self.onKickOccupant === 'function'){
+            if (status && statusCode == "301") {
+                if (typeof self.onKickOccupant === 'function') {
                     var actorElement = chatUtils.getElement(chatUtils.getElement(x, 'item'), 'actor');
                     var initiatorUserJid = chatUtils.getAttr(actorElement, 'jid');
+
                     Utils.safeCallbackCall(self.onKickOccupant,
                         dialogId,
-                        self.helpers.getIdFromNode(initiatorUserJid));
+                        self.helpers.getIdFromNode(initiatorUserJid)
+                    );
                 }
 
                 delete self.muc.joinedRooms[self.helpers.getRoomJidFromRoomFullJid(from)];
 
                 return true;
-
-                // Occupants JOIN/LEAVE events
-            }else if(!status){
-                if(userId != currentUserId){
+            // Occupants JOIN/LEAVE events
+            } else if (!status) {
+                if (userId != currentUserId) {
                     // Leave
-                    if(type && type === 'unavailable'){
-                        if (typeof self.onLeaveOccupant === 'function'){
+                    if (type && type === 'unavailable') {
+                        if (typeof self.onLeaveOccupant === 'function') {
                             Utils.safeCallbackCall(self.onLeaveOccupant, dialogId, parseInt(userId));
                         }
+
                         return true;
-                        // Join
-                    }else{
-                        if (typeof self.onJoinOccupant === 'function'){
+                    // Join
+                    } else {
+                        if (typeof self.onJoinOccupant === 'function') {
                             Utils.safeCallbackCall(self.onJoinOccupant, dialogId, parseInt(userId));
                         }
-                        return true;
-                    }
 
-                }
-            }
-        }
-
-        if(Utils.getEnv().node) {
-            /** MUC */
-            if(xXMLNS){
-                if(xXMLNS == "http://jabber.org/protocol/muc#user"){
-                    /**
-                     * if you make 'leave' from dialog
-                     * stanza will be contains type="unavailable"
-                     */
-                    if(type && type === 'unavailable'){
-                        /** LEAVE from dialog */
-                        if(status && statusCode == "110"){
-                            if(typeof self.nodeStanzasCallbacks['muc:leave'] === 'function') {
-                                Utils.safeCallbackCall(self.nodeStanzasCallbacks['muc:leave'], null);
-                            }
-                            return true;
-                        }
-                    }
-
-                    /** JOIN to dialog success */
-                    if(id.endsWith(":join") && status && statusCode == "110"){
-                        if(typeof self.nodeStanzasCallbacks[id] === 'function') {
-                            Utils.safeCallbackCall(self.nodeStanzasCallbacks[id], stanza);
-                        }
-                        return true;
-                    }
-
-                    // an error
-                }else if(type && type === 'error' && xXMLNS == "http://jabber.org/protocol/muc"){
-                    /** JOIN to dialog error */
-                    if(id.endsWith(":join")){
-                        if(typeof self.nodeStanzasCallbacks[id] === 'function') {
-                            Utils.safeCallbackCall(self.nodeStanzasCallbacks[id], stanza);
-                        }
                         return true;
                     }
                 }
             }
         }
 
+        /** MUC */
+        if (xXMLNS) {
+            if (xXMLNS === "http://jabber.org/protocol/muc#user") {
+                /**
+                 * if you make 'leave' from dialog
+                 * stanza will be contains type="unavailable"
+                 */
+                if (type && type === 'unavailable') {
+                    /** LEAVE from dialog */
+                    if (status && statusCode == "110") {
+                        if (typeof self.nodeStanzasCallbacks['muc:leave'] === 'function') {
+                            Utils.safeCallbackCall(self.nodeStanzasCallbacks['muc:leave'], null);
+                        }
+
+                        return true;
+                    }
+                }
+
+                /** JOIN to dialog success */
+                if (id.endsWith(":join") && status && statusCode == "110") {
+                    if (typeof self.nodeStanzasCallbacks[id] === 'function') {
+                        Utils.safeCallbackCall(self.nodeStanzasCallbacks[id], stanza);
+                    }
+
+                    return true;
+                }
+            // an error
+            } else if (type && type === 'error' && xXMLNS == "http://jabber.org/protocol/muc") {
+                /** JOIN to dialog error */
+                if (id.endsWith(":join")) {
+                    if (typeof self.nodeStanzasCallbacks[id] === 'function') {
+                        Utils.safeCallbackCall(self.nodeStanzasCallbacks[id], stanza);
+                    }
+
+                    return true;
+                }
+            }
+        }
 
         // ROSTER presences go here
-
         userId = self.helpers.getIdFromNode(from);
 
         if (!type) {
@@ -522,11 +497,7 @@ function ChatProxy(service) {
 
                     // send initial presence if one of client (instance) goes offline
                     if (userId === currentUserId) {
-                        if(Utils.getEnv().browser){
-                            self.connection.send($pres());
-                        } else if(Utils.getEnv().node){
-                            self.nClient.send(chatUtils.createStanza(NodeClient.Stanza, null,'presence'));
-                        }
+                        self.Client.send(chatUtils.createStanza(XMPP.Stanza, null,'presence'));
                     }
 
                     break;
@@ -552,11 +523,9 @@ function ChatProxy(service) {
             Utils.safeCallbackCall(self.onLastUserActivityListener, userId, seconds);
         }
 
-        if (Utils.getEnv().node) {
-            if (self.nodeStanzasCallbacks[stanzaId]) {
-                Utils.safeCallbackCall(self.nodeStanzasCallbacks[stanzaId], stanza);
-                delete self.nodeStanzasCallbacks[stanzaId];
-            }
+        if (self.nodeStanzasCallbacks[stanzaId]) {
+            Utils.safeCallbackCall(self.nodeStanzasCallbacks[stanzaId], stanza);
+            delete self.nodeStanzasCallbacks[stanzaId];
         }
 
         return true;
@@ -637,244 +606,139 @@ ChatProxy.prototype = {
          * @param {Object} error - The error object
          * @param {(Object|Boolean)} response - Object of subscribed users (roster) or empty body.
          * */
-        Utils.QBLog('[Chat]', 'connect', params);
+        Utils.QBLog('[QB-Chat]', 'connect', JSON.stringify(params));
 
         var self = this,
-            err, rooms;
+            rooms,
+            err;
 
         var userJid = chatUtils.buildUserJid(params);
+        
+        self.Client.options.jid = userJid;
+        self.Client.options.password = params.password;
 
-        /** Connect for browser env. */
-        if(Utils.getEnv().browser) {
-            self.connection.connect(userJid, params.password, function(status) {
-                switch (status) {
-                    case Strophe.Status.ERROR:
-                        err = Utils.getError(422, 'Status.ERROR - An error has occurred');
-                        if (typeof callback === 'function') {
-                            callback(err, null);
-                        }
-                        break;
-                    case Strophe.Status.CONNECTING:
-                        Utils.QBLog('[Chat]', 'Status.CONNECTING');
-                        Utils.QBLog('[Chat]', 'Chat Protocol - ' + (config.chatProtocol.active === 1 ? 'BOSH' : 'WebSocket'));
-                        break;
-                    case Strophe.Status.CONNFAIL:
-                        Utils.QBLog('[Chat]', 'Status.CONNFAIL');
+        /** HANDLERS */
+        self.Client.on('auth', function () {
+            Utils.QBLog('[QB-Chat]', 'Status.CONNECTED at ' + chatUtils.getLocalTime());
+        });
 
-                        err = Utils.getError(422, 'Status.CONNFAIL - The connection attempt failed');
-                        if (typeof callback === 'function') {
-                            callback(err, null);
-                        }
-                        break;
-                    case Strophe.Status.AUTHENTICATING:
-                        Utils.QBLog('[Chat]', 'Status.AUTHENTICATING');
-                        break;
-                    case Strophe.Status.AUTHFAIL:
-                        Utils.QBLog('[Chat]', 'Status.AUTHFAIL');
+        self.Client.on('online', function () {
+            Utils.QBLog('[QB-Chat]', 'Status.CONNECTED at ' + chatUtils.getLocalTime());
 
-                        err = Utils.getError(401, 'Status.AUTHFAIL - The authentication attempt failed');
+            if (config.streamManagement.enable) {
+                self.streamManagement.enable(self.Client, XMPP);
+                self.streamManagement.sentMessageCallback = self._sentMessageCallback;
+            }
 
-                        if (typeof callback === 'function') {
-                            callback(err, null);
-                        }
+            self._isDisconnected = false;
+            self._isLogout = false;
 
-                        if(self._isDisconnected && typeof self.onReconnectFailedListener === 'function'){
-                            Utils.safeCallbackCall(self.onReconnectFailedListener, err);
-                        }
+            self.helpers.setUserCurrentJid(self.helpers.userCurrentJid(self.Client));
 
-                        break;
-                    case Strophe.Status.CONNECTED:
-                        Utils.QBLog('[Chat]', 'Status.CONNECTED at ' + chatUtils.getLocalTime());
+            /** Send first presence if user is online */
+            var presence = chatUtils.createStanza(XMPP.Stanza, null, 'presence');
 
-                        // Remove any handlers that might exist from a previous connection via
-                        // extension method added to the connection on initialization in qbMain.
-                        // NOTE: streamManagement also adds handlers, so do this first.
-                        self.connection.XDeleteHandlers();
+            self.Client.send(presence);
 
-                        if(config.streamManagement.enable && config.chatProtocol.active === 2){
-                            self.streamManagement.enable(self.connection, null);
-                            self.streamManagement.sentMessageCallback = self._sentMessageCallback;
-                        }
-
-                        self._isLogout = false;
-                        self._isDisconnected = false;
-
-                        self.helpers.setUserCurrentJid(self.helpers.userCurrentJid(self.connection));
-
-                        self.connection.XAddTrackedHandler(self._onMessage, null, 'message', 'chat');
-                        self.connection.XAddTrackedHandler(self._onMessage, null, 'message', 'groupchat');
-                        self.connection.XAddTrackedHandler(self._onPresence, null, 'presence');
-                        self.connection.XAddTrackedHandler(self._onIQ, null, 'iq');
-                        self.connection.XAddTrackedHandler(self._onSystemMessageListener, null, 'message', 'headline');
-                        self.connection.XAddTrackedHandler(self._onMessageErrorListener, null, 'message', 'error');
-
-                        // enable carbons
-                        self._enableCarbons();
-
-                        // chat server will close your connection if you are not active in chat during one minute
-                        // initial presence and an automatic reminder of it each 55 seconds
-                        self.connection.send($pres());
-
-                        if (typeof callback === 'function') {
-                            if (params.connectWithoutGettingRoster) {
-                                // connected and return nothing as result
-                                callback(null, undefined);
-                                // get the roster and save
-                                self.roster.get(function(contacts) {
-                                    self.roster.contacts = contacts;
-                                });
-                            } else {
-                                // get the roster and save
-                                self.roster.get(function(contacts) {
-                                    self.roster.contacts = contacts;
-                                    // connected and return roster as result
-                                    callback(null, self.roster.contacts);
-                                });
-                            }
-                        } else {
-                            // recover the joined rooms
-                            rooms = Object.keys(self.muc.joinedRooms);
-                            Utils.QBLog('[Chat]', 'Re-joining ' + rooms.length + " rooms..");
-                            for (var i = 0, len = rooms.length; i < len; i++) {
-                                self.muc.join(rooms[i]);
-                            }
-
-                            // fire 'onReconnectListener'
-                            if (typeof self.onReconnectListener === 'function'){
-                                Utils.safeCallbackCall(self.onReconnectListener);
-                            }
-                        }
-
-                        break;
-                    case Strophe.Status.DISCONNECTING:
-                        Utils.QBLog('[Chat]', 'Status.DISCONNECTING');
-                        break;
-                    case Strophe.Status.DISCONNECTED:
-                        Utils.QBLog('[Chat]', 'Status.DISCONNECTED at ' + chatUtils.getLocalTime());
-
-                        self.connection.reset();
-
-                        // fire 'onDisconnectedListener' only once
-                        if (!self._isDisconnected && typeof self.onDisconnectedListener === 'function'){
-                            Utils.safeCallbackCall(self.onDisconnectedListener);
-                        }
-
-                        self._isDisconnected = true;
-
-                        // reconnect to chat
-                        if (!self._isLogout) {
-                            self.connect(params);
-                        }
-
-                        break;
-                    case Strophe.Status.ATTACHED:
-                        Utils.QBLog('[Chat]', 'Status.ATTACHED');
-                        break;
-                }
-            });
-        }
-
-        /** connect for node */
-        if(Utils.getEnv().node) {
-            self.nClient.options.jid = userJid;
-            self.nClient.options.password = params.password;
-
-            /** HANDLERS */
-            self.nClient.on('auth', function () {
-                Utils.QBLog('[Chat]', 'Status.CONNECTED at ' + chatUtils.getLocalTime());
-            });
-
-            self.nClient.on('online', function () {
-                Utils.QBLog('[Chat]', 'Status.CONNECTED at ' + chatUtils.getLocalTime());
-
-                if(config.streamManagement.enable){
-                    self.streamManagement.enable(self.nClient, NodeClient);
-                    self.streamManagement.sentMessageCallback = self._sentMessageCallback;
-                }
-
-                self._isDisconnected = false;
-                self._isLogout = false;
-
-                self.helpers.setUserCurrentJid(self.helpers.userCurrentJid(self.nClient));
-
-                /** Send first presence if user is online */
-                var presence = chatUtils.createStanza(NodeClient.Stanza, null,'presence');
-                self.nClient.send(presence);
-
-                if (typeof callback === 'function') {
+            if (typeof callback === 'function') {
+                if (params.connectWithoutGettingRoster) {
+                    // connected and return nothing as result
                     callback(null, true);
+                    // get the roster and save
+                    self.roster.get(function(contacts) {
+                        self.roster.contacts = contacts;
+                    });
+                } else {
+                    // get the roster and save
+                    self.roster.get(function(contacts) {
+                        self.roster.contacts = contacts;
+                        // connected and return roster as result
+                        callback(null, self.roster.contacts);
+                    });
                 }
-            });
+            } else {
+                // recover the joined rooms
+                rooms = Object.keys(self.muc.joinedRooms);
 
-            self.nClient.on('connect', function () {
-                Utils.QBLog('[Chat] client is connected');
-                self._enableCarbons();
-            });
-
-            self.nClient.on('reconnect', function () {
-                Utils.QBLog('[Chat] client is reconnected');
-
-                self._isDisconnected = true;
-                self._isLogout = true;
-            });
-
-            self.nClient.on('disconnect', function () {
-                Utils.QBLog('[Chat] client is disconnected');
-
-
-                // fire 'onDisconnectedListener' only once
-                if (!self._isDisconnected && typeof self.onDisconnectedListener === 'function'){
-                    Utils.safeCallbackCall(self.onDisconnectedListener);
+                Utils.QBLog('[QB-Chat]', 'Re-joining ' + rooms.length + " rooms.");
+                for (var i = 0, len = rooms.length; i < len; i++) {
+                    self.muc.join(rooms[i]);
                 }
 
-                self._isLogout = true;
-                self._isDisconnected = true;
-            });
-
-            self.nClient.on('stanza', function (stanza) {
-                Utils.QBLog('[QBChat] RECV:', stanza.toString());
-
-                /**
-                 * Detect typeof incoming stanza
-                 * and fire the Listener
-                 */
-                if (stanza.is('presence')) {
-                    self._onPresence(stanza);
-                } else if (stanza.is('iq')) {
-                    self._onIQ(stanza);
-                } else if(stanza.is('message')){
-                    if(stanza.attrs.type === 'headline') {
-                        self._onSystemMessageListener(stanza);
-                    }else if(stanza.attrs.type === 'error') {
-                        self._onMessageErrorListener(stanza);
-                    } else {
-                        self._onMessage(stanza);
-                    }
+                // fire 'onReconnectListener'
+                if (typeof self.onReconnectListener === 'function'){
+                    Utils.safeCallbackCall(self.onReconnectListener);
                 }
-            });
+            }
+        });
 
-            self.nClient.on('offline', function () {
-                Utils.QBLog('[QBChat] client goes offline');
+        self.Client.on('connect', function () {
+            Utils.QBLog('[QB-Chat] client is connected');
+            self._enableCarbons();
+        });
 
-                self._isDisconnected = true;
-                self._isLogout = true;
-            });
+        self.Client.on('reconnect', function () {
+            Utils.QBLog('[QB-Chat] client is reconnected');
 
-            self.nClient.on('error', function (e) {
-                Utils.QBLog('[QBChat] client got error', e);
+            self._isDisconnected = true;
+            self._isLogout = true;
+        });
 
-                self._isDisconnected = true;
-                self._isLogout = true;
+        self.Client.on('disconnect', function () {
+            Utils.QBLog('[QB-Chat] client is disconnected');
 
-                err = Utils.getError(422, 'Status.ERROR - An error has occurred');
+            // fire 'onDisconnectedListener' only once
+            if (!self._isDisconnected && typeof self.onDisconnectedListener === 'function'){
+                Utils.safeCallbackCall(self.onDisconnectedListener);
+            }
 
-                if(typeof callback === 'function') {
-                    callback(err, null);
+            self._isLogout = true;
+            self._isDisconnected = true;
+        });
+
+        self.Client.on('stanza', function (stanza) {
+            Utils.QBLog('[QB-Chat] RECV:', stanza.toString());
+
+            /**
+             * Detect typeof incoming stanza
+             * and fire the Listener
+             */
+            if (stanza.is('presence')) {
+                self._onPresence(stanza);
+            } else if (stanza.is('iq')) {
+                self._onIQ(stanza);
+            } else if(stanza.is('message')){
+                if(stanza.attrs.type === 'headline') {
+                    self._onSystemMessageListener(stanza);
+                }else if(stanza.attrs.type === 'error') {
+                    self._onMessageErrorListener(stanza);
+                } else {
+                    self._onMessage(stanza);
                 }
-            });
+            }
+        });
 
-            self.nClient.connect();
-        }
+        self.Client.on('offline', function() {
+            Utils.QBLog('[QB-Chat] client goes offline');
+
+            self._isDisconnected = true;
+            self._isLogout = true;
+        });
+
+        self.Client.on('error', function(e) {
+            Utils.QBLog('[QB-Chat] client got error', JSON.stringify(e));
+
+            self._isDisconnected = true;
+            self._isLogout = true;
+
+            err = Utils.getError(422, 'Status.ERROR - An error has occurred');
+
+            if (typeof callback === 'function') {
+                callback(err, null);
+            }
+        });
+
+        self.Client.connect();
     },
 
     /**
@@ -886,7 +750,7 @@ ChatProxy.prototype = {
      * */
     send: function(jid_or_user_id, message) {
         var self = this,
-            builder = Utils.getEnv().browser ? $msg : NodeClient.Stanza;
+            builder = XMPP.Stanza;
 
         var paramsCreateMsg = {
             from: self.helpers.getUserCurrentJid(),
@@ -917,23 +781,12 @@ ChatProxy.prototype = {
             stanza = chatUtils.filledExtraParams(stanza, message.extension);
         }
 
-        if(Utils.getEnv().browser) {
-            if(config.streamManagement.enable){
-                message.id = paramsCreateMsg.id;
-                message.jid_or_user_id = jid_or_user_id;
-                self.connection.send(stanza, message);
-            } else {
-                self.connection.send(stanza);
-            }
-        } else if (Utils.getEnv().node) {
-            if(config.streamManagement.enable){
-                message.id = paramsCreateMsg.id;
-                message.jid_or_user_id = jid_or_user_id;
-                self.nClient.send(stanza, message);
-            } else {
-                self.nClient.send(stanza);
-            }
-
+        if (config.streamManagement.enable) {
+            message.id = paramsCreateMsg.id;
+            message.jid_or_user_id = jid_or_user_id;
+            self.Client.send(stanza, message);
+        } else {
+            self.Client.send(stanza);
         }
 
         return paramsCreateMsg.id;
@@ -948,7 +801,7 @@ ChatProxy.prototype = {
      * */
     sendSystemMessage: function(jid_or_user_id, message) {
         var self = this,
-            builder = Utils.getEnv().browser ? $msg : NodeClient.Stanza,
+            builder = XMPP.Stanza,
             paramsCreateMsg = {
                 type: 'headline',
                 id: message.id ? message.id : Utils.getBsonObjectId(),
@@ -963,30 +816,15 @@ ChatProxy.prototype = {
             }).t(message.body).up();
         }
 
-        if(Utils.getEnv().browser) {
-            // custom parameters
-            if (message.extension) {
-                stanza.c('extraParams', {
-                    xmlns: chatUtils.MARKERS.CLIENT
-                }).c('moduleIdentifier').t('SystemNotifications').up();
+        if (message.extension) {
+            stanza.c('extraParams',  {
+                xmlns: chatUtils.MARKERS.CLIENT
+            }).c('moduleIdentifier').t('SystemNotifications');
 
-                stanza = chatUtils.filledExtraParams(stanza, message.extension);
-            }
-
-            self.connection.send(stanza);
+            stanza = chatUtils.filledExtraParams(stanza, message.extension);
         }
 
-        if(Utils.getEnv().node) {
-            if (message.extension) {
-                stanza.c('extraParams',  {
-                    xmlns: chatUtils.MARKERS.CLIENT
-                }).c('moduleIdentifier').t('SystemNotifications');
-
-                stanza = chatUtils.filledExtraParams(stanza, message.extension);
-            }
-
-            self.nClient.send(stanza);
-        }
+        self.Client.send(stanza);
 
         return paramsCreateMsg.id;
     },
@@ -1003,7 +841,7 @@ ChatProxy.prototype = {
                 to: this.helpers.jidOrUserId(jid_or_user_id),
                 type: this.helpers.typeChat(jid_or_user_id)
             },
-            builder = Utils.getEnv().browser ? $msg : NodeClient.Stanza;
+            builder = XMPP.Stanza;
 
         var stanza = chatUtils.createStanza(builder, stanzaParams);
 
@@ -1011,11 +849,7 @@ ChatProxy.prototype = {
             xmlns: chatUtils.MARKERS.STATES
         });
 
-        if(Utils.getEnv().browser){
-            self.connection.send(stanza);
-        } else if(Utils.getEnv().node) {
-            self.nClient.send(stanza);
-        }
+        self.Client.send(stanza);
     },
 
     /**
@@ -1030,7 +864,7 @@ ChatProxy.prototype = {
                 to: this.helpers.jidOrUserId(jid_or_user_id),
                 type: this.helpers.typeChat(jid_or_user_id)
             },
-            builder = Utils.getEnv().browser ? $msg : NodeClient.Stanza;
+            builder = XMPP.Stanza;
 
         var stanza = chatUtils.createStanza(builder, stanzaParams);
 
@@ -1038,11 +872,7 @@ ChatProxy.prototype = {
             xmlns: chatUtils.MARKERS.STATES
         });
 
-        if(Utils.getEnv().browser){
-            self.connection.send(stanza);
-        } else if(Utils.getEnv().node) {
-            self.nClient.send(stanza);
-        }
+        self.Client.send(stanza);
     },
 
     /**
@@ -1061,7 +891,7 @@ ChatProxy.prototype = {
                 id: Utils.getBsonObjectId(),
                 to: this.helpers.jidOrUserId(params.userId)
             },
-            builder = Utils.getEnv().browser ? $msg : NodeClient.Stanza;
+            builder = XMPP.Stanza;
 
         var stanza = chatUtils.createStanza(builder, stanzaParams);
 
@@ -1074,11 +904,7 @@ ChatProxy.prototype = {
             xmlns: chatUtils.MARKERS.CLIENT
         }).c('dialog_id').t(params.dialogId);
 
-        if(Utils.getEnv().browser) {
-            self.connection.send(stanza);
-        } else if(Utils.getEnv().node) {
-            self.nClient.send(stanza);
-        }
+        self.Client.send(stanza);
     },
 
     /**
@@ -1097,7 +923,7 @@ ChatProxy.prototype = {
                 to: this.helpers.jidOrUserId(params.userId),
                 id: Utils.getBsonObjectId()
             },
-            builder = Utils.getEnv().browser ? $msg : NodeClient.Stanza;
+            builder = XMPP.Stanza;
 
         var stanza = chatUtils.createStanza(builder, stanzaParams);
 
@@ -1110,11 +936,7 @@ ChatProxy.prototype = {
             xmlns: chatUtils.MARKERS.CLIENT
         }).c('dialog_id').t(params.dialogId);
 
-        if(Utils.getEnv().browser) {
-            self.connection.send(stanza);
-        } else if(Utils.getEnv().node){
-            self.nClient.send(stanza);
-        }
+        self.Client.send(stanza);
     },
 
     /**
@@ -1134,7 +956,7 @@ ChatProxy.prototype = {
             'type': 'get'
         };
 
-        builder = Utils.getEnv().browser ? $iq : NodeClient.Stanza;
+        builder = XMPP.Stanza;
 
         iq = chatUtils.createStanza(builder, iqParams, 'iq');
 
@@ -1142,11 +964,7 @@ ChatProxy.prototype = {
             'xmlns': chatUtils.MARKERS.LAST
         });
 
-        if (Utils.getEnv().browser) {
-            this.connection.sendIQ(iq);
-        } else if (Utils.getEnv().node) {
-            this.nClient.send(iq);
-        }
+        this.Client.send(iq);
     },
 
     /**
@@ -1158,38 +976,7 @@ ChatProxy.prototype = {
         this._isLogout = true;
         this.helpers.setUserCurrentJid('');
 
-        if(Utils.getEnv().browser) {
-            this.connection.flush();
-            this.connection.disconnect();
-        } else if(Utils.getEnv().node) {
-            this.nClient.end();
-        }
-    },
-
-    addListener: function(params, callback) {
-        Utils.QBLog('[Deprecated!]', 'Avoid using it, this feature will be removed in future version.');
-
-        if(Utils.getEnv().node) {
-            throw new Error(unsupportedError);
-        }
-
-        return this.connection.XAddTrackedHandler(handler, null, params.name || null, params.type || null, params.id || null, params.from || null);
-
-        function handler() {
-            callback();
-            // if 'false' - a handler will be performed only once
-            return params.live !== false;
-        }
-    },
-
-    deleteListener: function(ref) {
-        Utils.QBLog('[Deprecated!]', 'Avoid using it, this feature will be removed in future version.');
-
-        if(Utils.getEnv().node) {
-            throw new Error(unsupportedError);
-        }
-
-        this.connection.deleteHandler(ref);
+        this.Client.end();
     },
 
     /**
@@ -1202,7 +989,7 @@ ChatProxy.prototype = {
                 from: self.helpers.getUserCurrentJid(),
                 id: chatUtils.getUniqueId('enableCarbons')
             },
-            builder = Utils.getEnv().browser ? $iq : NodeClient.Stanza;
+            builder = XMPP.Stanza;
 
         var iq = chatUtils.createStanza(builder, carbonParams, 'iq');
 
@@ -1210,11 +997,7 @@ ChatProxy.prototype = {
             xmlns: chatUtils.MARKERS.CARBONS
         });
 
-        if(Utils.getEnv().browser) {
-            self.connection.sendIQ(iq);
-        } else if(Utils.getEnv().node) {
-            self.nClient.send(iq);
-        }
+        self.Client.send(iq);
     }
 };
 
@@ -1232,7 +1015,7 @@ function RosterProxy(options) {
     this.service = options.service;
     this.helpers = options.helpers;
     this.connection = options.stropheClient;
-    this.nClient = options.nodeClient;
+    this.Client = options.xmppClient;
     this.nodeStanzasCallbacks = options.nodeStanzasCallbacks;
     //
     this.contacts = {};
@@ -1253,22 +1036,18 @@ RosterProxy.prototype = {
          * */
 
         var self = this,
-            items, userId, contacts = {},
+            contacts = {},
             iqParams = {
                 'type': 'get',
                 'from': self.helpers.getUserCurrentJid(),
                 'id': chatUtils.getUniqueId('getRoster')
             },
-            builder = Utils.getEnv().browser ? $iq : NodeClient.Stanza;
+            builder = XMPP.Stanza;
 
         var iq = chatUtils.createStanza(builder, iqParams, 'iq');
 
         function _getItems(stanza) {
-            if(Utils.getEnv().browser) {
-                return stanza.getElementsByTagName('item');
-            } else if(Utils.getEnv().node) {
-                return stanza.getChild('query').children;
-            }
+            return stanza.getChild('query').children;
         }
 
         function _callbackWrap(stanza) {
@@ -1292,12 +1071,8 @@ RosterProxy.prototype = {
             xmlns: chatUtils.MARKERS.ROSTER
         });
 
-        if(Utils.getEnv().browser) {
-            self.connection.sendIQ(iq, _callbackWrap);
-        } else if(Utils.getEnv().node){
-            self.nodeStanzasCallbacks[iqParams.id] = _callbackWrap;
-            self.nClient.send(iq);
-        }
+        self.nodeStanzasCallbacks[iqParams.id] = _callbackWrap;
+        self.Client.send(iq);
     },
 
     /**
@@ -1362,7 +1137,6 @@ RosterProxy.prototype = {
             type: 'subscribe'
         });
 
-
         if (typeof callback === 'function') {
             callback();
         }
@@ -1375,7 +1149,6 @@ RosterProxy.prototype = {
      * @param {rejectRosterCallback} callback - The callback function.
      * */
     reject: function(jidOrUserId, callback) {
-
         /**
          * Callback for QB.chat.roster.reject(). Run without parameters.
          * @callback rejectRosterCallback
@@ -1399,7 +1172,6 @@ RosterProxy.prototype = {
         }
     },
 
-
     /**
      * Remove subscription with some user from your contact list. {@link https://quickblox.com/developers/Web_XMPP_Chat_Sample#Remove_users More info.}
      * @memberof QB.chat.roster
@@ -1407,7 +1179,6 @@ RosterProxy.prototype = {
      * @param {removeRosterCallback} callback - The callback function.
      * */
     remove: function(jidOrUserId, callback) {
-
         /**
          * Callback for QB.chat.roster.remove(). Run without parameters.
          * @callback removeRosterCallback
@@ -1418,11 +1189,11 @@ RosterProxy.prototype = {
 
         var iqParams = {
             'type': 'set',
-            'from': self.connection ? self.connection.jid : self.nClient.jid.user,
+            'from': self.connection ? self.connection.jid : self.Client.jid.user,
             'id': chatUtils.getUniqueId('getRoster')
         };
 
-        var builder = Utils.getEnv().browser ? $iq : NodeClient.Stanza,
+        var builder = XMPP.Stanza,
             iq = chatUtils.createStanza(builder, iqParams, 'iq');
 
         function _callbackWrap() {
@@ -1440,17 +1211,12 @@ RosterProxy.prototype = {
             subscription: 'remove'
         });
 
-        if(Utils.getEnv().browser) {
-            self.connection.sendIQ(iq, _callbackWrap);
-
-        } else if(Utils.getEnv().node) {
-            self.nodeStanzasCallbacks[iqParams.id] = _callbackWrap;
-            self.nClient.send(iq);
-        }
+        self.nodeStanzasCallbacks[iqParams.id] = _callbackWrap;
+        self.Client.send(iq);
     },
 
     _sendSubscriptionPresence: function(params) {
-        var builder = Utils.getEnv().browser ? $pres : NodeClient.Stanza,
+        var builder = XMPP.Stanza,
             presParams = {
                 to: params.jid,
                 type: params.type
@@ -1458,11 +1224,7 @@ RosterProxy.prototype = {
 
         var pres = chatUtils.createStanza(builder, presParams, 'presence');
 
-        if (Utils.getEnv().browser){
-            this.connection.send(pres);
-        } else if (Utils.getEnv().node) {
-            this.nClient.send(pres);
-        }
+        this.Client.send(pres);
     }
 };
 
@@ -1480,14 +1242,13 @@ function MucProxy(options) {
     this.service = options.service;
     this.helpers = options.helpers;
     this.connection = options.stropheClient;
-    this.nClient = options.nodeClient;
+    this.Client = options.xmppClient;
     this.nodeStanzasCallbacks = options.nodeStanzasCallbacks;
     //
     this.joinedRooms = {};
 }
 
 MucProxy.prototype = {
-
     /**
      * Join to the group dialog. {@link https://quickblox.com/developers/Web_XMPP_Chat_Sample#Chat_in_group_dialog More info.}
      * @memberof QB.chat.muc
@@ -1509,7 +1270,7 @@ MucProxy.prototype = {
                 from: self.helpers.getUserCurrentJid(),
                 to: self.helpers.getRoomJid(dialogJid)
             },
-            builder = Utils.getEnv().browser ? $pres : NodeClient.Stanza;
+            builder = XMPP.Stanza;
 
         var pres = chatUtils.createStanza(builder, presParams, 'presence');
 
@@ -1519,19 +1280,11 @@ MucProxy.prototype = {
 
         this.joinedRooms[dialogJid] = true;
 
-        if (Utils.getEnv().browser) {
-            if (typeof callback === 'function') {
-                self.connection.XAddTrackedHandler(callback, null, 'presence', null, id);
-            }
-
-            self.connection.send(pres);
-        } else if(Utils.getEnv().node){
-            if (typeof callback === 'function') {
-                self.nodeStanzasCallbacks[id] = callback;
-            }
-
-            self.nClient.send(pres);
+        if (typeof callback === 'function') {
+            self.nodeStanzasCallbacks[id] = callback;
         }
+
+        self.Client.send(pres);
     },
 
     /**
@@ -1553,28 +1306,18 @@ MucProxy.prototype = {
                 from: self.helpers.getUserCurrentJid(),
                 to: self.helpers.getRoomJid(jid)
             },
-            builder = Utils.getEnv().browser ? $pres : NodeClient.Stanza;
+            builder = XMPP.Stanza;
 
         var pres = chatUtils.createStanza(builder, presParams, 'presence');
 
         delete this.joinedRooms[jid];
 
-        if (Utils.getEnv().browser) {
-            var roomJid = self.helpers.getRoomJid(jid);
-
-            if (typeof callback === 'function') {
-                self.connection.XAddTrackedHandler(callback, null, 'presence', presParams.type, null, roomJid);
-            }
-
-            self.connection.send(pres);
-        } else if(Utils.getEnv().node) {
-            /** The answer don't contain id */
-            if(typeof callback === 'function') {
-                self.nodeStanzasCallbacks['muc:leave'] = callback;
-            }
-
-            self.nClient.send(pres);
+        /** The answer don't contain id */
+        if (typeof callback === 'function') {
+            self.nodeStanzasCallbacks['muc:leave'] = callback;
         }
+
+        self.Client.send(pres);
     },
 
     /**
@@ -1599,8 +1342,10 @@ MucProxy.prototype = {
                 from: self.helpers.getUserCurrentJid(),
                 id: chatUtils.getUniqueId('muc_disco_items'),
             },
-            builder = Utils.getEnv().browser ? $iq : NodeClient.Stanza;
+            builder = XMPP.Stanza;
+
         var iq = chatUtils.createStanza(builder, iqParams, 'iq');
+
         iq.c('query', {
             xmlns: 'http://jabber.org/protocol/disco#items'
         });
@@ -1613,7 +1358,7 @@ MucProxy.prototype = {
                     items = stanza.getChild('query').getChildElements('item'),
                     userId;
 
-                for(var i = 0, len = items.length; i < len; i++) {
+                for (var i = 0, len = items.length; i < len; i++) {
                     userId = self.helpers.getUserIdFromRoomJid(items[i].attrs.jid);
                     users.push(parseInt(userId));
                 }
@@ -1622,23 +1367,8 @@ MucProxy.prototype = {
             }
         }
 
-        if (Utils.getEnv().browser) {
-            self.connection.sendIQ(iq, function(stanza) {
-                var items = stanza.getElementsByTagName('item'),
-                    userId;
-
-                for (var i = 0, len = items.length; i < len; i++) {
-                    userId = self.helpers.getUserIdFromRoomJid(items[i].getAttribute('jid'));
-                    onlineUsers.push(parseInt(userId));
-                }
-
-                callback(onlineUsers);
-            });
-        } else if(Utils.getEnv().node) {
-            self.nClient.send(iq);
-
-            self.nodeStanzasCallbacks[iqParams.id] = _getUsers;
-        }
+        self.Client.send(iq);
+        self.nodeStanzasCallbacks[iqParams.id] = _getUsers;
     }
 };
 
@@ -1652,7 +1382,7 @@ function PrivacyListProxy(options) {
     this.service = options.service;
     this.helpers = options.helpers;
     this.connection = options.stropheClient;
-    this.nClient = options.nodeClient;
+    this.Client = options.xmppClient;
     this.nodeStanzasCallbacks = options.nodeStanzasCallbacks;
 }
 
@@ -1697,7 +1427,7 @@ PrivacyListProxy.prototype = {
                 from: self.helpers.getUserCurrentJid(),
                 id: chatUtils.getUniqueId('edit')
             },
-            builder = Utils.getEnv().browser ? $iq : NodeClient.Stanza;
+            builder = XMPP.Stanza;
 
         var iq = chatUtils.createStanza(builder, iqParams, 'iq');
 
@@ -1708,53 +1438,31 @@ PrivacyListProxy.prototype = {
         });
 
         function createPrivacyItem(iq, params){
-            if(Utils.getEnv().browser) {
-                iq.c('item', {
-                    type: 'jid',
-                    value: params.jidOrMuc,
-                    action: params.userAction,
-                    order: params.order
-                }).c('message', {})
-                    .up().c('presence-in', {})
-                    .up().c('presence-out', {})
-                    .up().c('iq', {})
-                    .up().up();
-            } else if(Utils.getEnv().node) {
-                var list = iq.getChild('query').getChild('list');
+            var list = iq.getChild('query').getChild('list');
 
-                list.c('item', {
-                    type: 'jid',
-                    value: params.jidOrMuc,
-                    action: params.userAction,
-                    order: params.order
-                }).c('message', {})
-                    .up().c('presence-in', {})
-                    .up().c('presence-out', {})
-                    .up().c('iq', {})
-                    .up().up();
-            }
+            list.c('item', {
+                type: 'jid',
+                value: params.jidOrMuc,
+                action: params.userAction,
+                order: params.order
+            }).c('message', {})
+                .up().c('presence-in', {})
+                .up().c('presence-out', {})
+                .up().c('iq', {})
+                .up().up();
 
             return iq;
         }
 
         function createPrivacyItemMutal(iq, params) {
-            if(Utils.getEnv().browser) {
-                iq.c('item', {
-                    type: 'jid',
-                    value: params.jidOrMuc,
-                    action: params.userAction,
-                    order: params.order
-                }).up();
-            } else if(Utils.getEnv().node) {
-                var list = iq.getChild('query').getChild('list');
+            var list = iq.getChild('query').getChild('list');
 
-                list.c('item', {
-                    type: 'jid',
-                    value: params.jidOrMuc,
-                    action: params.userAction,
-                    order: params.order
-                }).up();
-            }
+            list.c('item', {
+                type: 'jid',
+                value: params.jidOrMuc,
+                action: params.userAction,
+                order: params.order
+            }).up();
 
             return iq;
         }
@@ -1767,7 +1475,7 @@ PrivacyListProxy.prototype = {
             userJid = self.helpers.jidOrUserId(parseInt(userId, 10));
             userMuc = self.helpers.getUserNickWithMucDomain(userId);
 
-            if(mutualBlock && userAction === 'deny'){
+            if (mutualBlock && userAction === 'deny') {
                 iq = createPrivacyItemMutal(iq, {
                     order: j+1,
                     jidOrMuc: userJid,
@@ -1792,28 +1500,15 @@ PrivacyListProxy.prototype = {
             }
         }
 
-        if(Utils.getEnv().browser) {
-            self.connection.sendIQ(iq, function(stanzaResult) {
-                callback(null);
-            }, function(stanzaError){
-                if(stanzaError){
-                    var errorObject = chatUtils.getErrorFromXMLNode(stanzaError);
-                    callback(errorObject);
-                }else{
-                    callback(Utils.getError(408));
-                }
-            });
-        } else if(Utils.getEnv().node) {
-            self.nClient.send(iq);
+        self.Client.send(iq);
 
-            self.nodeStanzasCallbacks[iqParams.id] = function (stanza) {
-                if(!stanza.getChildElements('error').length){
-                    callback(null);
-                } else {
-                    callback(Utils.getError(408));
-                }
-            };
-        }
+        self.nodeStanzasCallbacks[iqParams.id] = function (stanza) {
+            if(!stanza.getChildElements('error').length){
+                callback(null);
+            } else {
+                callback(Utils.getError(408));
+            }
+        };
     },
 
     /**
@@ -1830,16 +1525,14 @@ PrivacyListProxy.prototype = {
          * @callback getListPrivacylistCallback
          * */
 
-        var self = this,
-            items, userJid, userId,
-            usersList = [], list = {};
+        var self = this;
 
         var iqParams = {
                 type: 'get',
                 from: self.helpers.getUserCurrentJid(),
                 id: chatUtils.getUniqueId('getlist')
             },
-            builder = Utils.getEnv().browser ? $iq : NodeClient.Stanza;
+            builder = XMPP.Stanza;
 
         var iq = chatUtils.createStanza(builder, iqParams, 'iq');
 
@@ -1849,58 +1542,32 @@ PrivacyListProxy.prototype = {
             name: name
         });
 
-        if(Utils.getEnv().browser) {
-            self.connection.sendIQ(iq, function(stanzaResult) {
-                items = stanzaResult.getElementsByTagName('item');
+        self.nodeStanzasCallbacks[iqParams.id] = function(stanza){
+            var stanzaQuery = stanza.getChild('query'),
+                list = stanzaQuery ? stanzaQuery.getChild('list') : null,
+                items = list ? list.getChildElements('item') : null,
+                userJid, userId, usersList = [];
 
-                for (var i = 0, len = items.length; i < len; i=i+2) {
-                    userJid = items[i].getAttribute('value');
-                    userId = self.helpers.getIdFromNode(userJid);
-                    usersList.push({
-                        user_id: userId,
-                        action: items[i].getAttribute('action')
-                    });
-                }
-                list = {
-                    name: name,
-                    items: usersList
-                };
-                callback(null, list);
-            }, function(stanzaError){
-                if(stanzaError){
-                    var errorObject = chatUtils.getErrorFromXMLNode(stanzaError);
-                    callback(errorObject, null);
-                }else{
-                    callback(Utils.getError(408), null);
-                }
-            });
-        } else if(Utils.getEnv().node){
-            self.nodeStanzasCallbacks[iqParams.id] = function(stanza){
-                var stanzaQuery = stanza.getChild('query'),
-                    list = stanzaQuery ? stanzaQuery.getChild('list') : null,
-                    items = list ? list.getChildElements('item') : null,
-                    userJid, userId, usersList = [];
+            for (var i = 0, len = items.length; i < len; i=i+2) {
+                userJid = items[i].attrs.value;
+                userId = self.helpers.getIdFromNode(userJid);
+                usersList.push({
+                    user_id: userId,
+                    action: items[i].attrs.action
+                });
+            }
 
-                for (var i = 0, len = items.length; i < len; i=i+2) {
-                    userJid = items[i].attrs.value;
-                    userId = self.helpers.getIdFromNode(userJid);
-                    usersList.push({
-                        user_id: userId,
-                        action: items[i].attrs.action
-                    });
-                }
-
-                list = {
-                    name: list.attrs.name,
-                    items: usersList
-                };
-
-                callback(null, list);
-                delete self.nodeStanzasCallbacks[iqParams.id];
+            list = {
+                name: list.attrs.name,
+                items: usersList
             };
 
-            self.nClient.send(iq);
-        }
+            callback(null, list);
+
+            delete self.nodeStanzasCallbacks[iqParams.id];
+        };
+
+        self.Client.send(iq);
     },
 
     /**
@@ -1930,7 +1597,7 @@ PrivacyListProxy.prototype = {
                 self.create(updatedList, function(err, result) {
                     if (error) {
                         callback(err, null);
-                    }else{
+                    } else {
                         callback(null, result);
                     }
                 });
@@ -1960,22 +1627,26 @@ PrivacyListProxy.prototype = {
                 'id': chatUtils.getUniqueId('getNames')
             };
 
-        if(Utils.getEnv().browser){
-            iq = $iq(stanzaParams).c('query', {
-                xmlns: Strophe.NS.PRIVACY_LIST
-            });
+        iq = new XMPP.Stanza('iq', stanzaParams);
 
-            self.connection.sendIQ(iq, function(stanzaResult) {
+        iq.c('query', {
+            xmlns: chatUtils.MARKERS.PRIVACY
+        });
+
+        self.nodeStanzasCallbacks[iq.attrs.id] = function(stanza){
+            if(stanza.attrs.type !== 'error'){
+
                 var allNames = [], namesList = {},
-                    defaultList = stanzaResult.getElementsByTagName('default'),
-                    activeList = stanzaResult.getElementsByTagName('active'),
-                    allLists = stanzaResult.getElementsByTagName('list');
+                    query = stanza.getChild('query'),
+                    defaultList = query.getChild('default'),
+                    activeList = query.getChild('active'),
+                    allLists = query.getChildElements('list');
 
-                var defaultName = defaultList && defaultList.length > 0 ? defaultList[0].getAttribute('name') : null;
-                var activeName = activeList && activeList.length > 0 ? activeList[0].getAttribute('name') : null;
+                var defaultName = defaultList ? defaultList.attrs.name : null,
+                    activeName = activeList ? activeList.attrs.name : null;
 
                 for (var i = 0, len = allLists.length; i < len; i++) {
-                    allNames.push(allLists[i].getAttribute('name'));
+                    allNames.push(allLists[i].attrs.name);
                 }
 
                 namesList = {
@@ -1985,51 +1656,12 @@ PrivacyListProxy.prototype = {
                 };
 
                 callback(null, namesList);
-            }, function(stanzaError){
-                if(stanzaError){
-                    var errorObject = chatUtils.getErrorFromXMLNode(stanzaError);
-                    callback(errorObject, null);
-                }else{
-                    callback(Utils.getError(408), null);
-                }
-            });
-        } else if(Utils.getEnv().node) {
-            iq = new NodeClient.Stanza('iq', stanzaParams);
+            } else {
+                callback(Utils.getError(408));
+            }
+        };
 
-            iq.c('query', {
-                xmlns: chatUtils.MARKERS.PRIVACY
-            });
-
-            self.nodeStanzasCallbacks[iq.attrs.id] = function(stanza){
-                if(stanza.attrs.type !== 'error'){
-
-                    var allNames = [], namesList = {},
-                        query = stanza.getChild('query'),
-                        defaultList = query.getChild('default'),
-                        activeList = query.getChild('active'),
-                        allLists = query.getChildElements('list');
-
-                    var defaultName = defaultList ? defaultList.attrs.name : null,
-                        activeName = activeList ? activeList.attrs.name : null;
-
-                    for (var i = 0, len = allLists.length; i < len; i++) {
-                        allNames.push(allLists[i].attrs.name);
-                    }
-
-                    namesList = {
-                        'default': defaultName,
-                        'active': activeName,
-                        'names': allNames
-                    };
-
-                    callback(null, namesList);
-                } else {
-                    callback(Utils.getError(408));
-                }
-            };
-
-            self.nClient.send(iq);
-        }
+        self.Client.send(iq);
     },
 
     /**
@@ -2047,49 +1679,28 @@ PrivacyListProxy.prototype = {
 
         var iq,
             stanzaParams = {
-                'from': this.connection ? this.connection.jid : this.nClient.jid.user,
+                'from': this.connection ? this.connection.jid : this.Client.jid.user,
                 'type': 'set',
                 'id': chatUtils.getUniqueId('remove')
             };
 
-        if(Utils.getEnv().browser){
-            iq = $iq(stanzaParams).c('query', {
-                xmlns: Strophe.NS.PRIVACY_LIST
-            }).c('list', {
-                name: name ? name : ''
-            });
+        iq = new XMPP.Stanza('iq', stanzaParams);
 
-            this.connection.sendIQ(iq, function(stanzaResult) {
+        iq.c('query', {
+            xmlns: chatUtils.MARKERS.PRIVACY
+        }).c('list', {
+            name: name ? name : ''
+        });
+
+        this.nodeStanzasCallbacks[stanzaParams.id] = function(stanza) {
+            if (!stanza.getChildElements('error').length) {
                 callback(null);
-            }, function(stanzaError){
-                if(stanzaError){
-                    var errorObject = chatUtils.getErrorFromXMLNode(stanzaError);
-                    callback(errorObject);
-                }else{
-                    callback(Utils.getError(408));
-                }
-            });
+            } else {
+                callback(Utils.getError(408));
+            }
+        };
 
-        } else if(Utils.getEnv().node){
-            iq = new NodeClient.Stanza('iq', stanzaParams);
-
-            iq.c('query', {
-                xmlns: chatUtils.MARKERS.PRIVACY
-            }).c('list', {
-                name: name ? name : ''
-            });
-
-            this.nodeStanzasCallbacks[stanzaParams.id] = function(stanza){
-                if(!stanza.getChildElements('error').length){
-                    callback(null);
-                } else {
-                    callback(Utils.getError(408));
-                }
-            };
-
-            this.nClient.send(iq);
-        }
-
+        this.Client.send(iq);
     },
 
     /**
@@ -2107,42 +1718,26 @@ PrivacyListProxy.prototype = {
 
         var iq,
             stanzaParams = {
-                'from': this.connection ? this.connection.jid : this.nClient.jid.user,
+                'from': this.connection ? this.connection.jid : this.Client.jid.user,
                 'type': 'set',
                 'id': chatUtils.getUniqueId('default')
             };
 
-        if(Utils.getEnv().browser){
-            iq = $iq(stanzaParams).c('query', {
-                xmlns: Strophe.NS.PRIVACY_LIST
-            }).c('default', name && name.length > 0 ? {name: name} : {});
+        iq = new XMPP.Stanza('iq', stanzaParams);
 
-            this.connection.sendIQ(iq, function(stanzaResult) {
+        iq.c('query', {
+            xmlns: chatUtils.MARKERS.PRIVACY
+        }).c('default', name && name.length > 0 ? {name: name} : {});
+
+        this.nodeStanzasCallbacks[stanzaParams.id] = function(stanza){
+            if(!stanza.getChildElements('error').length){
                 callback(null);
-            }, function(stanzaError){
-                if(stanzaError){
-                    var errorObject = chatUtils.getErrorFromXMLNode(stanzaError);
-                    callback(errorObject);
-                }else{
-                    callback(Utils.getError(408));
-                }
-            });
-        } else if(Utils.getEnv().node){
-            iq = new NodeClient.Stanza('iq', stanzaParams);
+            } else {
+                callback(Utils.getError(408));
+            }
+        };
 
-            iq.c('query', {
-                xmlns: chatUtils.MARKERS.PRIVACY
-            }).c('default', name && name.length > 0 ? {name: name} : {});
-
-            this.nodeStanzasCallbacks[stanzaParams.id] = function(stanza){
-                if(!stanza.getChildElements('error').length){
-                    callback(null);
-                } else {
-                    callback(Utils.getError(408));
-                }
-            };
-            this.nClient.send(iq);
-        }
+        this.Client.send(iq);
     }
 
 };
@@ -2196,7 +1791,7 @@ Helpers.prototype = {
         } else if (typeof jid_or_user_id === 'number') {
             chatType = 'chat';
         } else {
-            throw new Error(unsupportedError);
+            throw new Error('unsupported');
         }
         return chatType;
     },
@@ -2333,15 +1928,7 @@ Helpers.prototype = {
     },
 
     userCurrentJid: function(client){
-        try {
-            if (client instanceof Strophe.Connection){
-                return client.jid;
-            } else {
-                return client.jid.user + '@' + client.jid._domain + '/' + client.jid._resource;
-            }
-        } catch (e) { // ReferenceError: Strophe is not defined
-            return client.jid.user + '@' + client.jid._domain + '/' + client.jid._resource;
-        }
+        return client.jid.user + '@' + client.jid._domain + '/' + client.jid._resource;
     },
 
     getUserCurrentJid: function() {

@@ -28,8 +28,7 @@
 /** JSHint inline rules */
 /* globals $build */
 
-var Utils = require('../qbUtils'),
-    chatUtils = require('../modules/chat/qbChatHelpers');
+var chatUtils = require('../modules/chat/qbChatHelpers');
 
 function StreamManagement(options) {
 
@@ -46,10 +45,6 @@ function StreamManagement(options) {
     this._timeInterval = 2000;
 
     this.sentMessageCallback = null;
-
-    if(Utils.getEnv().browser){
-        this._parser = new DOMParser();
-    }
 
     // connection
     this._c = null;
@@ -76,16 +71,9 @@ StreamManagement.prototype.enable = function (connection, client) {
         self._c.send = this.send.bind(self);
     }
 
-    if(Utils.getEnv().browser){
-        this._clientProcessedStanzasCounter = null;
-        this._clientSentStanzasCounter = null;
-        self._addEnableHandlers();
-        stanza = $build('enable', enableParams);
-    } else if (Utils.getEnv().node){
-        self._nodeBuilder =  client.Stanza;
-        self._addEnableHandlers();
-        stanza = chatUtils.createStanza(self._nodeBuilder, enableParams, 'enable');
-    }
+    self._nodeBuilder =  client.Stanza;
+    self._addEnableHandlers();
+    stanza = chatUtils.createStanza(self._nodeBuilder, enableParams, 'enable');
 
     self._c.send(stanza);
 };
@@ -111,11 +99,7 @@ StreamManagement.prototype._timeoutCallback = function () {
 StreamManagement.prototype._addEnableHandlers = function () {
     var self = this;
 
-    if (Utils.getEnv().browser) {
-        self._c.XAddTrackedHandler(_incomingStanzaHandler.bind(self));
-    } else if (Utils.getEnv().node){
-        self._c.on('stanza', _incomingStanzaHandler.bind(self));
-    }
+    self._c.on('stanza', _incomingStanzaHandler.bind(self));
 
     function _incomingStanzaHandler (stanza){
         /*
@@ -141,8 +125,7 @@ StreamManagement.prototype._addEnableHandlers = function () {
                     xmlns: self._NS,
                     h: self._clientProcessedStanzasCounter
                 },
-                answerStanza = Utils.getEnv().browser ? $build('a', params) :
-                    chatUtils.createStanza(self._nodeBuilder, params, 'a');
+                answerStanza = chatUtils.createStanza(self._nodeBuilder, params, 'a');
 
             self._originalSend.call(self._c, answerStanza);
 
@@ -186,8 +169,7 @@ StreamManagement.prototype._sendStanzasRequest = function (data) {
     if(self._isStreamManagementEnabled){
         self._stanzasQueue.push(data);
 
-        var stanza = Utils.getEnv().browser ? $build('r', { xmlns: self._NS}) :
-            chatUtils.createStanza(self._nodeBuilder, { xmlns: self._NS}, 'r');
+        var stanza = chatUtils.createStanza(self._nodeBuilder, { xmlns: self._NS}, 'r');
 
         self._originalSend.call(self._c, stanza);
     }

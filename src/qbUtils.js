@@ -15,20 +15,6 @@ var ObjectId = {
 };
 
 var Utils = {
-    /**
-     * [getEnv get a name of an execution environment]
-     * @return {object} return names of env. (node/browser)
-     */
-    getEnv: function() {
-        var isNode = typeof window === 'undefined' && typeof exports === 'object',
-            isBrowser = typeof window !== 'undefined';
-
-        return {
-            'browser': isBrowser,
-            'node': isNode
-        };
-    },
-
     safeCallbackCall: function() {
         var listenerString = arguments[0].toString(),
             listenerName = listenerString.split('(')[0].split(' ')[1],

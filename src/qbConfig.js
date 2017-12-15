@@ -12,8 +12,8 @@
  */
 
 var config = {
-  version: '2.8.1-beta',
-  buildNumber: '1051',
+  version: '2.9.0-beta',
+  buildNumber: '1053',
   creds: {
     appId: '',
     authKey: '',
@@ -125,8 +125,13 @@ config.set = function(options) {
     }
 
     // backward compatibility: for config.iceServers
-    if(key === 'iceServers') {
+    if (key === 'iceServers') {
       config.webrtc.iceServers = options[key];
+    }
+
+    // TODO: fast solution to connect XMPP client library (not nodejs module)
+    if (key === 'xmppClient') {
+      config.xmppClient = options[key];
     }
   });
 };
