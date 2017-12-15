@@ -1,4 +1,10 @@
 {
+  "_args": [
+    [
+      "crypto-js@3.1.2-2",
+      "C:\\QuickBlox\\nativescript-quickblox-sdk"
+    ]
+  ],
   "_from": "crypto-js@3.1.2-2",
   "_id": "crypto-js@3.1.2-2",
   "_inBundle": false,
@@ -19,9 +25,8 @@
     "/"
   ],
   "_resolved": "https://registry.npmjs.org/crypto-js/-/crypto-js-3.1.2-2.tgz",
-  "_shasum": "93274f1748eca82e444074536e833c223c28f0e9",
-  "_spec": "crypto-js@3.1.2-2",
-  "_where": "C:\\Users\\vladlukhanin\\WebstormProjects\\nativescript-quickblox-sdk",
+  "_spec": "3.1.2-2",
+  "_where": "C:\\QuickBlox\\nativescript-quickblox-sdk",
   "author": {
     "name": "Evan Vosberg",
     "url": "http://github.com/evanvosberg"
@@ -29,9 +34,7 @@
   "bugs": {
     "url": "http://github.com/evanvosberg/crypto-js/issues"
   },
-  "bundleDependencies": false,
   "dependencies": {},
-  "deprecated": false,
   "description": "Modularized port of googlecode project crypto-js.",
   "devDependencies": {
     "fmd": "~0.0.1",

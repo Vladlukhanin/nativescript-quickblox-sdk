@@ -1,5 +1,9 @@
 [
     {
+        "name": "nativescript-xmpp-client",
+        "directory": "..\\..\\node_modules\\nativescript-xmpp-client"
+    },
+    {
         "name": "nativescript-theme-core",
         "directory": "..\\..\\node_modules\\nativescript-theme-core"
     },
@@ -10,6 +14,10 @@
     {
         "name": "tns-core-modules",
         "directory": "..\\..\\node_modules\\tns-core-modules"
+    },
+    {
+        "name": "nativescript-websockets",
+        "directory": "..\\..\\node_modules\\nativescript-websockets"
     },
     {
         "name": "tns-core-modules-widgets",

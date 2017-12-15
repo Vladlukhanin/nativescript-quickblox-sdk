@@ -1,28 +1,27 @@
 {
-  "_from": "nativescript-unit-test-runner",
+  "_from": "nativescript-unit-test-runner@^0.3.4",
   "_id": "nativescript-unit-test-runner@0.3.4",
   "_inBundle": false,
   "_integrity": "sha1-9t5SPUcyNlWcoOQgLRLVIXmNaBE=",
   "_location": "/nativescript-unit-test-runner",
   "_phantomChildren": {},
   "_requested": {
-    "type": "tag",
+    "type": "range",
     "registry": true,
-    "raw": "nativescript-unit-test-runner",
+    "raw": "nativescript-unit-test-runner@^0.3.4",
     "name": "nativescript-unit-test-runner",
     "escapedName": "nativescript-unit-test-runner",
-    "rawSpec": "",
+    "rawSpec": "^0.3.4",
     "saveSpec": null,
-    "fetchSpec": "latest"
+    "fetchSpec": "^0.3.4"
   },
   "_requiredBy": [
-    "#USER",
     "/"
   ],
   "_resolved": "https://registry.npmjs.org/nativescript-unit-test-runner/-/nativescript-unit-test-runner-0.3.4.tgz",
   "_shasum": "f6de523d473236559ca0e4202d12d521798d6811",
-  "_spec": "nativescript-unit-test-runner",
-  "_where": "C:\\Users\\vladlukhanin\\WebstormProjects\\nativescript-quickblox-sdk",
+  "_spec": "nativescript-unit-test-runner@^0.3.4",
+  "_where": "C:\\QuickBlox\\nativescript-quickblox-sdk",
   "author": {
     "name": "Telerik",
     "email": "support@telerik.com"

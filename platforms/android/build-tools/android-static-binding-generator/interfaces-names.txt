@@ -1,3 +1,17 @@
+org.java_websocket.WebSocket
+org.java_websocket.WebSocketFactory
+org.java_websocket.WebSocketListener
+org.java_websocket.WrappedByteChannel
+org.java_websocket.framing.CloseFrame
+org.java_websocket.framing.FrameBuilder
+org.java_websocket.framing.Framedata
+org.java_websocket.handshake.ClientHandshake
+org.java_websocket.handshake.ClientHandshakeBuilder
+org.java_websocket.handshake.HandshakeBuilder
+org.java_websocket.handshake.Handshakedata
+org.java_websocket.handshake.ServerHandshake
+org.java_websocket.handshake.ServerHandshakeBuilder
+org.java_websocket.server.WebSocketServer.WebSocketServerFactory
 android.support.annotation.UiThread
 android.support.annotation.MainThread
 android.support.annotation.IdRes

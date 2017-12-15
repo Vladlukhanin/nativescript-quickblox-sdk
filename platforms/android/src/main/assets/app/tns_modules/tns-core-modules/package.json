@@ -16,12 +16,12 @@
     "fetchSpec": "~3.3.0"
   },
   "_requiredBy": [
-    "/tns-template-hello-world"
+    "/"
   ],
   "_resolved": "https://registry.npmjs.org/tns-core-modules/-/tns-core-modules-3.3.0.tgz",
   "_shasum": "4feb1f31113c554f0bb47984ac496fccdb5af156",
   "_spec": "tns-core-modules@~3.3.0",
-  "_where": "C:\\Users\\vladlukhanin\\WebstormProjects\\nativescript-quickblox-sdk\\node_modules\\tns-template-hello-world",
+  "_where": "C:\\QuickBlox\\nativescript-quickblox-sdk",
   "bundleDependencies": false,
   "dependencies": {
     "tns-core-modules-widgets": "3.3.0"
