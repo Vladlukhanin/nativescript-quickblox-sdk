@@ -18,8 +18,6 @@ function ChatProxy(service) {
 
     var self = this;
 
-    self.webrtcSignalingProcessor = null;
-
     self.Client = new XMPP.Client({
         'websocket': {
             'url': config.chatProtocol.websocket
@@ -552,8 +550,6 @@ function ChatProxy(service) {
             };
 
             Utils.safeCallbackCall(self.onSystemMessageListener, message);
-        } else if(self.webrtcSignalingProcessor && !delay && moduleIdentifier === 'WebRTCVideoChat'){
-            self.webrtcSignalingProcessor._onMessage(from, extraParams, delay, userId, extraParamsParsed.extension);
         }
 
         /**

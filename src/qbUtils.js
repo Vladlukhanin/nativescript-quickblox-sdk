@@ -146,20 +146,6 @@ var Utils = {
         }
     },
 
-    isWebRTCAvailble: function() {
-        /** Shims */
-        var RTCPeerConnection = window.RTCPeerConnection,
-            IceCandidate = window.RTCIceCandidate,
-            SessionDescription = window.RTCSessionDescription,
-            isAvaible = true;
-
-        if(!RTCPeerConnection || !IceCandidate || !SessionDescription) {
-            isAvaible = false;
-        }
-
-        return isAvaible;
-    },
-
     getError: function(code, detail, moduleName) {
         var errorMsg = {
             code: code,

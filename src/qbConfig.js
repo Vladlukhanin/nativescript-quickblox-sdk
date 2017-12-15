@@ -4,16 +4,11 @@
  * QuickBlox JavaScript SDK
  *
  * Configuration Module
- *
- * NOTE:
- *  - config.webrtc.statsReportTimeInterval [integer, sec]:
- *  could add listener onCallStatsReport(session, userId, bytesReceived) if
- *  want to get stats (bytesReceived) about peer every X sec;
  */
 
 var config = {
   version: '2.9.1-beta',
-  buildNumber: '1057',
+  buildNumber: '1058',
   creds: {
     appId: '',
     authKey: '',
@@ -31,52 +26,6 @@ var config = {
     bosh: 'https://chat.quickblox.com:5281',
     websocket: 'wss://chat.quickblox.com:5291',
     active: 2
-  },
-  webrtc: {
-    answerTimeInterval: 60,
-    dialingTimeInterval: 5,
-    disconnectTimeInterval: 30,
-    statsReportTimeInterval: false,
-    iceServers: [
-      {
-        'url': 'stun:stun.l.google.com:19302'
-      },
-      {
-        'url': 'stun:turn.quickblox.com',
-        'username': 'quickblox',
-        'credential': 'baccb97ba2d92d71e26eb9886da5f1e0'
-      },
-      {
-        'url': 'turn:turn.quickblox.com:3478?transport=udp',
-        'username': 'quickblox',
-        'credential': 'baccb97ba2d92d71e26eb9886da5f1e0'
-      },
-      {
-        'url': 'turn:turn.quickblox.com:3478?transport=tcp',
-        'username': 'quickblox',
-        'credential': 'baccb97ba2d92d71e26eb9886da5f1e0'
-      },
-      {
-       'url': 'turn:turnsingapor.quickblox.com:3478?transport=udp',		
-       'username': 'quickblox',		
-       'credential': 'baccb97ba2d92d71e26eb9886da5f1e0'		
-      },
-      {
-        'url': 'turn:turnsingapore.quickblox.com:3478?transport=tcp',		
-        'username': 'quickblox',		
-        'credential': 'baccb97ba2d92d71e26eb9886da5f1e0'		
-      },
-      {
-        'url': 'turn:turnireland.quickblox.com:3478?transport=udp',		
-        'username': 'quickblox',		
-        'credential': 'baccb97ba2d92d71e26eb9886da5f1e0'		
-      },
-      {
-        'url': 'turn:turnireland.quickblox.com:3478?transport=tcp',		
-        'username': 'quickblox',		
-        'credential': 'baccb97ba2d92d71e26eb9886da5f1e0'		
-      }
-    ]
   },
   urls: {
     session: 'session',
@@ -122,11 +71,6 @@ config.set = function(options) {
           }
         });
       }
-    }
-
-    // backward compatibility: for config.iceServers
-    if (key === 'iceServers') {
-      config.webrtc.iceServers = options[key];
     }
 
     // TODO: fast solution to connect XMPP client library (not nodejs module)

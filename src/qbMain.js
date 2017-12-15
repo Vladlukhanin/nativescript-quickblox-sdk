@@ -8,8 +8,6 @@
  */
 
 var config = require('./qbConfig');
-var Utils = require('./qbUtils');
-
 
 // Actual QuickBlox API starts here
 function QuickBlox() {}
@@ -61,8 +59,6 @@ QuickBlox.prototype = {
         this.chat = new ChatProxy(this.service) || {};
         this.chat.dialog = new DialogProxy(this.service);
         this.chat.message = new MessageProxy(this.service);
-
-        this.webrtc = false;
 
         // Initialization by outside token
         if (typeof appIdOrToken === 'string' && (!authKeyOrAppId || typeof authKeyOrAppId === 'number') && !authSecret) {

@@ -10,7 +10,6 @@ ratings:
   - "src/**/*.js"
 exclude_paths:
 - "*.min.*"
-- "spec/"
-- "docs/"
-- "samples/"
-- "src/plugins/jquery.ajax.js"
+- "app/"
+- "hooks/"
+- "platforms/"

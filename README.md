@@ -19,38 +19,6 @@ Work in progress...
 npm install nativescript-quickblox --save
 ```
 
-### NOTE: If you want to use XMPP chat functional.
-The following changes must be applied for **nativescript-websockets** lib:
-#### 1) node_modules/nativescript-websocket/websockets.android.js
-after line
-```javascript
-this._headers = options.headers || [];
-```
-add
-```javascript
-this._headers['Sec-WebSocket-Protocol'] = this._protocol;
-```
-
-#### 2) node_modules/nativescript-websocket/websockets.ios.js
-after line
-```javascript
-this._headers = options.headers || [];
-```
-add
-```javascript
-this._headers['Connection'] = "Upgrade";
-```
-
-#### 3) node_modules/nativescript-websocket/websockets-common.js
-replace
-```javascript
-setTimeout(function() {ws.open();}, 250);
-```
-to
-```javascript
-setTimeout(function() {ws.open();}, 500);
-```
-
 ### And you're ready to go:
 
 ```javascript
