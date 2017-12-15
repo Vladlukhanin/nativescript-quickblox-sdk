@@ -7,8 +7,8 @@
  */
 
 var config = {
-  version: '2.9.1-beta',
-  buildNumber: '1058',
+  version: '2.9.2-beta',
+  buildNumber: 'ns1059',
   creds: {
     appId: '',
     authKey: '',
@@ -71,11 +71,6 @@ config.set = function(options) {
           }
         });
       }
-    }
-
-    // TODO: fast solution to connect XMPP client library (not nodejs module)
-    if (key === 'xmppClient') {
-      config.xmppClient = options[key];
     }
   });
 };

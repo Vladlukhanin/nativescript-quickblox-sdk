@@ -30,25 +30,6 @@ var QB1 = new QuickBlox();
 var QB2 = new QuickBlox();
 ```
 
-### Initialize QB with chat functionality (XMPP):
-
-```javascript
-var XMPP = require('nativescript-xmpp-client');
-
-var qbConfig = {
-    xmppClient: XMPP,
-    endpoints: {
-        api: "apicustomdomain.quickblox.com",
-        chat: "chatcustomdomain.quickblox.com"
-    },
-    debug: {
-        mode: 1
-    }
-};
-
-QB.init(100500, 'your-authKey', 'your-authSecret', qbConfig);
-```
-
 ## Download ZIP archive
 
 [NativeScript QuickBlox JavaScript SDK, zip archive](https://github.com/Vladlukhanin/nativescript-quickblox-sdk/archive/master.zip)

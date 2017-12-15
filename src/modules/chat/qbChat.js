@@ -6,16 +6,10 @@
 var chatUtils = require('./qbChatHelpers'),
     config = require('../../qbConfig'),
     Utils = require('../../qbUtils'),
+    XMPP = require('nativescript-xmpp-client'),
     StreamManagement = require('../../plugins/streamManagement');
 
-var XMPP = config.xmppClient ? config.xmppClient : null;
-
 function ChatProxy(service) {
-    if (!XMPP) {
-        Utils.QBLog('Initialized without XMPP library (set qbConfig.xmppClient: require("nativescript-xmpp-client")...)');
-        return {};
-    }
-
     var self = this;
 
     self.Client = new XMPP.Client({

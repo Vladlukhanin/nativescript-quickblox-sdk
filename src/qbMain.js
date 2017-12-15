@@ -56,7 +56,7 @@ QuickBlox.prototype = {
         this.pushnotifications = new PushNotifications(this.service);
         this.data = new Data(this.service);
         this.addressbook = new AddressBook(this.service);
-        this.chat = new ChatProxy(this.service) || {};
+        this.chat = new ChatProxy(this.service);
         this.chat.dialog = new DialogProxy(this.service);
         this.chat.message = new MessageProxy(this.service);
 

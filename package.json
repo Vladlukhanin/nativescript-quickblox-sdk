@@ -1,7 +1,7 @@
 {
 	"name": "nativescript-quickblox",
 	"description": "NativeScript QuickBlox JS SDK",
-	"version": "2.9.1-beta",
+	"version": "2.9.2-beta",
 	"homepage": "https://quickblox.com/developers/Javascript",
 	"main": "src/qbMain.js",
 	"license": "(Apache-2.0)",
@@ -9,6 +9,8 @@
 		"quickblox",
 		"javascript",
 		"nativescript",
+		"android",
+		"ios",
 		"sdk",
 		"baas",
 		"cloud",
@@ -31,18 +33,9 @@
 		"type": "git",
 		"url": "git+https://github.com/Vladlukhanin/nativescript-quickblox-sdk.git"
 	},
-	"eslintIgnore": "**/*{.,-}min.js",
 	"bugs": {
 		"url": "https://github.com/Vladlukhanin/nativescript-quickblox-sdk/issues",
 		"email": "web@quickblox.com"
-	},
-	"autoupdate": {
-		"source": "git",
-		"target": "git+https://github.com/Vladlukhanin/nativescript-quickblox-sdk.git",
-		"basePath": "",
-		"files": [
-			"quickblox.min.js"
-		]
 	},
 	"config": {
 		"ghooks": {
@@ -50,11 +43,7 @@
 		}
 	},
 	"scripts": {
-		"lint": "jshint src --reporter=node_modules/jshint-stylish",
-		"develop": "cross-env NODE_ENV=develop gulp",
-		"build": "npm run lint && gulp generate-build_version && gulp build && gulp minify",
-		"buildNotMinified": "npm run lint && gulp build",
-		"generateBuildVersion": "gulp generate-build_version"
+		"lint": "jshint src --reporter=node_modules/jshint-stylish"
 	},
 	"dependencies": {
 		"crypto-js": "3.1.2-2",
@@ -68,22 +57,13 @@
 		"babel-traverse": "6.4.5",
 		"babel-types": "6.4.5",
 		"babylon": "6.4.5",
-		"browserify": "^13.1.0",
-		"cross-env": "^3.1.2",
 		"ghooks": "^1.3.2",
-		"gulp": "^3.9.1",
-		"gulp-connect": "^5.0.0",
-		"gulp-notify": "^3.0.0",
-		"gulp-uglify": "^3.0.0",
 		"jasmine-core": "^2.8.0",
 		"jshint": "^2.9.3",
 		"jshint-stylish": "^2.2.1",
 		"karma": "^1.7.1",
 		"karma-jasmine": "^1.1.1",
-		"karma-nativescript-launcher": "^0.4.0",
-		"lazy": "1.0.11",
-		"pump": "^1.0.1",
-		"vinyl-source-stream": "^1.1.0"
+		"karma-nativescript-launcher": "^0.4.0"
 	},
 	"nativescript": {
 		"id": "org.nativescript.nativescriptquickbloxsdk",
