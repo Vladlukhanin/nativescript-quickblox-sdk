@@ -1,7 +1,7 @@
 {
 	"name": "nativescript-quickblox",
 	"description": "NativeScript QuickBlox JS SDK",
-	"version": "2.9.0-beta",
+	"version": "2.9.1-beta",
 	"homepage": "https://quickblox.com/developers/Javascript",
 	"main": "src/qbMain.js",
 	"license": "(Apache-2.0)",
